@@ -103,8 +103,8 @@ class ParticleSystem {
     private func initializeParticles() {
         let particles = currentParticleBuffer.contents().bindMemory(to: Particle.self, capacity: maxParticles)
         
-        for i in 0..<maxParticles {
-            particles[i] = Particle(
+        for index in 0..<maxParticles {
+            particles[index] = Particle(
                 position: simd_float4(0, 0, 0, 1),
                 velocity: simd_float4(0, 0, 0, 0),
                 color: simd_float4(1, 1, 1, 0),
@@ -150,7 +150,7 @@ class ParticleSystem {
         let velocity = simd_float2(cos(angle) * speed, sin(angle) * speed) * 0.1
         
         let hue = fract(time * 0.1 + Float(index) * 0.01)
-        let color = hsvToRgb(h: hue, s: 0.8, v: 1.0)
+        let color = hsvToRgb(hue: hue, saturation: 0.8, value: 1.0)
         
         particles[index] = Particle(
             position: simd_float4(position.x, position.y, 0, 1),
@@ -218,24 +218,24 @@ class ParticleSystem {
         emissionRate = rate
     }
     
-    private func hsvToRgb(h: Float, s: Float, v: Float) -> simd_float3 {
-        let c = v * s
-        let x = c * (1 - abs(fmod(h * 6, 2) - 1))
-        let m = v - c
+    private func hsvToRgb(hue: Float, saturation: Float, value: Float) -> simd_float3 {
+        let chroma = value * saturation
+        let secondComponent = chroma * (1 - abs(fmod(hue * 6, 2) - 1))
+        let matchValue = value - chroma
         
         var rgb: simd_float3
-        let hueSegment = Int(h * 6) % 6
+        let hueSegment = Int(hue * 6) % 6
         
         switch hueSegment {
-        case 0: rgb = simd_float3(c, x, 0)
-        case 1: rgb = simd_float3(x, c, 0)
-        case 2: rgb = simd_float3(0, c, x)
-        case 3: rgb = simd_float3(0, x, c)
-        case 4: rgb = simd_float3(x, 0, c)
-        default: rgb = simd_float3(c, 0, x)
+        case 0: rgb = simd_float3(chroma, secondComponent, 0)
+        case 1: rgb = simd_float3(secondComponent, chroma, 0)
+        case 2: rgb = simd_float3(0, chroma, secondComponent)
+        case 3: rgb = simd_float3(0, secondComponent, chroma)
+        case 4: rgb = simd_float3(secondComponent, 0, chroma)
+        default: rgb = simd_float3(chroma, 0, secondComponent)
         }
         
-        return rgb + simd_float3(m, m, m)
+        return rgb + simd_float3(matchValue, matchValue, matchValue)
     }
     
     private func fract(_ x: Float) -> Float {

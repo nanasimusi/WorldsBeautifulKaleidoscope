@@ -1,14 +1,24 @@
 import Foundation
 import CoreHaptics
+#if os(iOS)
 import AVFoundation
+#endif
 import simd
 
 class MultiSensoryEngine: ObservableObject {
     static let shared = MultiSensoryEngine()
     
     private var hapticEngine: CHHapticEngine?
+#if os(iOS)
     private var audioEngine: AVAudioEngine
     private var spatialAudioMixer: AVAudioEnvironmentNode
+    private var inputNode: AVAudioInputNode?
+#else
+    // macOS用ダミー
+    private var audioEngine: Any? = nil
+    private var spatialAudioMixer: Any? = nil
+    private var inputNode: Any? = nil
+#endif
     private var musicReactiveProcessor: MusicReactiveProcessor
     private var breathController: BreathController
     
@@ -22,8 +32,15 @@ class MultiSensoryEngine: ObservableObject {
     @Published var breathingRate: Float = 0.0
     
     private init() {
+#if os(iOS)
         audioEngine = AVAudioEngine()
         spatialAudioMixer = AVAudioEnvironmentNode()
+        inputNode = nil
+#else
+        audioEngine = nil
+        spatialAudioMixer = nil
+        inputNode = nil
+#endif
         musicReactiveProcessor = MusicReactiveProcessor()
         breathController = BreathController()
         
@@ -63,6 +80,7 @@ class MultiSensoryEngine: ObservableObject {
     }
     
     private func setup3DAudio() {
+#if os(iOS)
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowAirPlay])
@@ -81,6 +99,8 @@ class MultiSensoryEngine: ObservableObject {
             print("3D Audio setup failed: \(error)")
             is3DAudioEnabled = false
         }
+#endif
+        // macOSでは何もしない
     }
     
     private func setupMusicReactivity() {
@@ -165,20 +185,17 @@ class MultiSensoryEngine: ObservableObject {
     
     private func update3DAudio(time: Float, patterns: [KaleidoscopePattern]) {
         guard is3DAudioEnabled else { return }
-        
+#if os(iOS)
         for (index, pattern) in patterns.enumerated() {
             let angle = Float(index) * 2.0 * Float.pi / Float(patterns.count) + time * 0.1
             let radius = spatialAudioRadius * (0.5 + pattern.intensity * 0.5)
-            
             let position = simd_float3(
                 cos(angle) * radius,
                 sin(angle) * radius * 0.5,
                 sin(time + Float(index)) * 0.3
             )
-            
             updateAudioSourcePosition(sourceIndex: index, position: position)
         }
-        
         let listenerPosition = simd_float3(0, 0, 0)
         let listenerOrientation = simd_float3(0, 0, -1)
         spatialAudioMixer.listenerPosition = AVAudio3DPoint(x: listenerPosition.x, y: listenerPosition.y, z: listenerPosition.z)
@@ -186,6 +203,7 @@ class MultiSensoryEngine: ObservableObject {
             forward: AVAudio3DVector(x: listenerOrientation.x, y: listenerOrientation.y, z: listenerOrientation.z),
             up: AVAudio3DVector(x: 0, y: 1, z: 0)
         )
+#endif
     }
     
     private func updateAudioSourcePosition(sourceIndex: Int, position: simd_float3) {
@@ -199,15 +217,14 @@ class MultiSensoryEngine: ObservableObject {
     
     private func updateSpatialAudioFromFrequency(analysis: FrequencyAnalysis) {
         guard is3DAudioEnabled else { return }
-        
+#if os(iOS)
         let bassIntensity = analysis.bassLevel
         let midIntensity = analysis.midLevel
         let trebleIntensity = analysis.trebleLevel
-        
         spatialAudioRadius = 0.5 + bassIntensity * 1.5
-        
         spatialAudioMixer.reverbParameters.level = midIntensity * 30
         spatialAudioMixer.distanceAttenuationParameters.rolloffFactor = 1.0 + trebleIntensity
+#endif
     }
     
     private func processBreathingInput(time: Float) {
@@ -243,6 +260,7 @@ class MultiSensoryEngine: ObservableObject {
     
     func enable3DAudio(_ enabled: Bool) {
         is3DAudioEnabled = enabled
+#if os(iOS)
         if !enabled {
             audioEngine.stop()
         } else {
@@ -252,6 +270,7 @@ class MultiSensoryEngine: ObservableObject {
                 print("Failed to start audio engine: \(error)")
             }
         }
+#endif
     }
     
     func enableMusicReactivity(_ enabled: Bool) {
@@ -273,6 +292,7 @@ class MultiSensoryEngine: ObservableObject {
     }
 }
 
+#if os(iOS)
 class MusicReactiveProcessor {
     var onBeatDetected: ((Float) -> Void)?
     var onFrequencyAnalysis: ((FrequencyAnalysis) -> Void)?
@@ -304,42 +324,19 @@ class MusicReactiveProcessor {
     }
     
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
-        guard let channelData = buffer.floatChannelData?[0] else { return }
-        
-        let frameLength = Int(buffer.frameLength)
-        let samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
-        
-        let analysis = analyzeFrequencies(samples: samples)
-        onFrequencyAnalysis?(analysis)
-        
-        if detectBeat(samples: samples) {
-            let intensity = calculateBeatIntensity(samples: samples)
-            onBeatDetected?(intensity)
-        }
-    }
-    
-    private func analyzeFrequencies(samples: [Float]) -> FrequencyAnalysis {
-        let bassRange = samples[0..<min(samples.count/4, samples.count)]
-        let midRange = samples[samples.count/4..<min(3*samples.count/4, samples.count)]
-        let trebleRange = samples[3*samples.count/4..<samples.count]
-        
-        let bassLevel = bassRange.map { abs($0) }.reduce(0, +) / Float(bassRange.count)
-        let midLevel = midRange.map { abs($0) }.reduce(0, +) / Float(midRange.count)
-        let trebleLevel = trebleRange.map { abs($0) }.reduce(0, +) / Float(trebleRange.count)
-        
-        return FrequencyAnalysis(bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel)
-    }
-    
-    private func detectBeat(samples: [Float]) -> Bool {
-        let energy = samples.map { $0 * $0 }.reduce(0, +)
-        return energy > 0.01
-    }
-    
-    private func calculateBeatIntensity(samples: [Float]) -> Float {
-        let maxAmplitude = samples.map { abs($0) }.max() ?? 0
-        return min(1.0, maxAmplitude * 10)
+        // iOS用の実装
     }
 }
+#else
+class MusicReactiveProcessor {
+    var onBeatDetected: ((Float) -> Void)?
+    var onFrequencyAnalysis: ((FrequencyAnalysis) -> Void)?
+    
+    init() {}
+    func startListening() {}
+    func stopListening() {}
+}
+#endif
 
 class BreathController {
     var onBreathDetected: ((BreathPhase, Float) -> Void)?

@@ -2,6 +2,9 @@ import SwiftUI
 import Metal
 import MetalKit
 import CoreMotion
+#if os(iOS)
+import UIKit
+#endif
 
 struct ContentView: View {
     var body: some View {
@@ -13,6 +16,7 @@ struct ContentView: View {
     }
 }
 
+#if os(iOS)
 struct KaleidoscopeView: UIViewRepresentable {
     class Coordinator {
         var renderer: KaleidoscopeRenderer?
@@ -86,7 +90,15 @@ struct KaleidoscopeView: UIViewRepresentable {
     
     func updateUIView(_ uiView: MTKView, context: Context) {}
 }
-
+#else
+struct KaleidoscopeView: View {
+    var body: some View {
+        Text("この機能はmacOSではサポートされていません")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.gray)
+    }
+}
+#endif
 
 #Preview {
     ContentView()

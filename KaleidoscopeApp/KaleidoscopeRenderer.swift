@@ -2,7 +2,9 @@ import Metal
 import MetalKit
 import simd
 import CoreHaptics
+#if os(iOS)
 import CoreMotion
+#endif
 
 class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
     private let device: MTLDevice
@@ -30,7 +32,12 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
     private var saturationPulse: Float = 0
     
     // Interaction state
+#if os(iOS)
     private var motionManager = CMMotionManager()
+#else
+    // macOS用ダミー
+    private var motionManager: Any? = nil
+#endif
     private var tapIntensity: Float = 0
     private var swipeEffect: Float = 0
     private var motionEffect: Float = 0
@@ -168,33 +175,38 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
     }
     
     private func setupInteractions() {
+    #if os(iOS)
         setupMotionDetection()
+    #else
+        // macOSでは何もしない
+    #endif
     }
     
     private func setupMotionDetection() {
+    #if os(iOS)
         guard motionManager.isAccelerometerAvailable else {
             print("Accelerometer not available")
             return
         }
-        
         // Configure accelerometer
         motionManager.accelerometerUpdateInterval = 1.0 / 60.0  // 60 Hz
-        
         // Configure gyroscope if available
         if motionManager.isGyroAvailable {
             motionManager.gyroUpdateInterval = 1.0 / 60.0
         }
-        
         startMotionUpdates()
+    #else
+        // macOSでは何もしない
+    #endif
     }
     
     private func startMotionUpdates() {
+    #if os(iOS)
         // Start accelerometer updates for shake detection
         motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
             guard let self = self, let data = data else { return }
             self.processAccelerometerData(data)
         }
-        
         // Start gyroscope updates for rotation detection
         if motionManager.isGyroAvailable {
             motionManager.startGyroUpdates(to: .main) { [weak self] data, error in
@@ -202,8 +214,12 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
                 self.processGyroscopeData(data)
             }
         }
+    #else
+        // macOSでは何もしない
+    #endif
     }
     
+    #if os(iOS)
     private func processAccelerometerData(_ data: CMAccelerometerData) {
         let acceleration = data.acceleration
         let magnitude = sqrt(acceleration.x * acceleration.x + 
@@ -239,6 +255,14 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
             handleRotationInteraction(rotation: rotationVector)
         }
     }
+    #else
+    private func processAccelerometerData(_ data: Any) {
+        // macOS用ダミー
+    }
+    private func processGyroscopeData(_ data: Any) {
+        // macOS用ダミー
+    }
+    #endif
     
     func handleTapInteraction(at location: CGPoint) {
         // Trigger ripple effect from tap location
@@ -511,7 +535,7 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
         // Dynamic clear color based on living colors
         let clearIntensity = 0.05 + colorBreathingPhase * 0.02
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(
-            clearIntensity * 0.2, clearIntensity * 0.1, clearIntensity * 0.3, 1.0
+            Double(clearIntensity * 0.2), Double(clearIntensity * 0.1), Double(clearIntensity * 0.3), 1.0
         )
         
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
@@ -543,7 +567,6 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
     private func updateLivingColors(deltaTime: Float) {
         // Breathing effect - like a slow, organic pulse
         colorBreathingPhase += deltaTime * 0.5  // 2-second cycle
-        let breathingCycle = sin(colorBreathingPhase)
         
         // Color temperature shifts - warm to cool like day/night
         colorTemperatureShift += deltaTime * 0.1  // 20-second cycle
@@ -645,23 +668,23 @@ class KaleidoscopeRenderer: NSObject, MTKViewDelegate {
     // MARK: - Helper Functions
     
     private func hsvToRgb(h: Float, s: Float, v: Float) -> simd_float3 {
-        let c = v * s
-        let x = c * (1 - abs(fmod(h * 6, 2) - 1))
-        let m = v - c
+        let chroma = v * s
+        let secondComponent = chroma * (1 - abs(fmod(h * 6, 2) - 1))
+        let matchValue = v - chroma
         
         var rgb: simd_float3
         let hueSegment = Int(h * 6) % 6
         
         switch hueSegment {
-        case 0: rgb = simd_float3(c, x, 0)
-        case 1: rgb = simd_float3(x, c, 0)
-        case 2: rgb = simd_float3(0, c, x)
-        case 3: rgb = simd_float3(0, x, c)
-        case 4: rgb = simd_float3(x, 0, c)
-        default: rgb = simd_float3(c, 0, x)
+        case 0: rgb = simd_float3(chroma, secondComponent, 0)
+        case 1: rgb = simd_float3(secondComponent, chroma, 0)
+        case 2: rgb = simd_float3(0, chroma, secondComponent)
+        case 3: rgb = simd_float3(0, secondComponent, chroma)
+        case 4: rgb = simd_float3(secondComponent, 0, chroma)
+        default: rgb = simd_float3(chroma, 0, secondComponent)
         }
         
-        return rgb + simd_float3(m, m, m)
+        return rgb + simd_float3(matchValue, matchValue, matchValue)
     }
     
     private func fract(_ x: Float) -> Float {

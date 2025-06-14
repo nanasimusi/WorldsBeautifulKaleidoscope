@@ -29,10 +29,10 @@ class MathematicalBeautyEngine {
     func calculateGoldenSpiralPoints(centerPoint: simd_float2, time: Float, pointCount: Int) -> [simd_float2] {
         var points: [simd_float2] = []
         
-        for i in 0..<pointCount {
-            let t = Float(i) / Float(pointCount) * 4.0 * Float.pi
-            let radius = pow(goldenRatio, t / Float.pi) * 0.1
-            let angle = t + time * 0.1
+        for index in 0..<pointCount {
+            let theta = Float(index) / Float(pointCount) * 4.0 * Float.pi
+            let radius = pow(goldenRatio, theta / Float.pi) * 0.1
+            let angle = theta + time * 0.1
             
             let point = simd_float2(
                 cos(angle) * radius + centerPoint.x,
@@ -83,7 +83,7 @@ class MathematicalBeautyEngine {
             let saturation = 0.7 + sin(time * 0.3 + Float(interval) * tau) * 0.2
             let brightness = 0.8 + cos(time * 0.4 + Float(interval) * tau) * 0.2
             
-            harmonicColors.append(hsvToRgb(h: hue, s: saturation, v: brightness))
+            harmonicColors.append(hsvToRgb(hue: hue, saturation: saturation, value: brightness))
         }
         
         return MathematicalColorHarmony(
@@ -123,24 +123,24 @@ class MathematicalBeautyEngine {
         )
     }
     
-    private func hsvToRgb(h: Float, s: Float, v: Float) -> simd_float3 {
-        let c = v * s
-        let x = c * (1 - abs(fmod(h * 6, 2) - 1))
-        let m = v - c
+    private func hsvToRgb(hue: Float, saturation: Float, value: Float) -> simd_float3 {
+        let chroma = value * saturation
+        let secondComponent = chroma * (1 - abs(fmod(hue * 6, 2) - 1))
+        let matchValue = value - chroma
         
         var rgb: simd_float3
-        let hueSegment = Int(h * 6) % 6
+        let hueSegment = Int(hue * 6) % 6
         
         switch hueSegment {
-        case 0: rgb = simd_float3(c, x, 0)
-        case 1: rgb = simd_float3(x, c, 0)
-        case 2: rgb = simd_float3(0, c, x)
-        case 3: rgb = simd_float3(0, x, c)
-        case 4: rgb = simd_float3(x, 0, c)
-        default: rgb = simd_float3(c, 0, x)
+        case 0: rgb = simd_float3(chroma, secondComponent, 0)
+        case 1: rgb = simd_float3(secondComponent, chroma, 0)
+        case 2: rgb = simd_float3(0, chroma, secondComponent)
+        case 3: rgb = simd_float3(0, secondComponent, chroma)
+        case 4: rgb = simd_float3(secondComponent, 0, chroma)
+        default: rgb = simd_float3(chroma, 0, secondComponent)
         }
         
-        return rgb + simd_float3(m, m, m)
+        return rgb + simd_float3(matchValue, matchValue, matchValue)
     }
     
     private func mix(_ a: Float, _ b: Float, _ t: Float) -> Float {

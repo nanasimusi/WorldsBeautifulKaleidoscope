@@ -232,23 +232,23 @@ class ColorScienceEngine {
     }
     
     private func hsvToRgb(hsv: simd_float3) -> simd_float3 {
-        let c = hsv.z * hsv.y
-        let x = c * (1 - abs(fmod(hsv.x * 6, 2) - 1))
-        let m = hsv.z - c
+        let chroma = hsv.z * hsv.y
+        let secondComponent = chroma * (1 - abs(fmod(hsv.x * 6, 2) - 1))
+        let matchValue = hsv.z - chroma
         
         var rgb: simd_float3
         let hueSegment = Int(hsv.x * 6) % 6
         
         switch hueSegment {
-        case 0: rgb = simd_float3(c, x, 0)
-        case 1: rgb = simd_float3(x, c, 0)
-        case 2: rgb = simd_float3(0, c, x)
-        case 3: rgb = simd_float3(0, x, c)
-        case 4: rgb = simd_float3(x, 0, c)
-        default: rgb = simd_float3(c, 0, x)
+        case 0: rgb = simd_float3(chroma, secondComponent, 0)
+        case 1: rgb = simd_float3(secondComponent, chroma, 0)
+        case 2: rgb = simd_float3(0, chroma, secondComponent)
+        case 3: rgb = simd_float3(0, secondComponent, chroma)
+        case 4: rgb = simd_float3(secondComponent, 0, chroma)
+        default: rgb = simd_float3(chroma, 0, secondComponent)
         }
         
-        return rgb + simd_float3(m, m, m)
+        return rgb + simd_float3(matchValue, matchValue, matchValue)
     }
     
     private func rgbToHsv(rgb: simd_float3) -> simd_float3 {

@@ -1,11 +1,18 @@
 import Foundation
 import CoreMotion
+#if os(iOS)
 import UIKit
+#endif
 
 class InteractionManager: ObservableObject {
     static let shared = InteractionManager()
     
+    #if os(iOS)
     private let motionManager = CMMotionManager()
+    #else
+    // macOS用ダミー
+    private let motionManager: Any? = nil
+    #endif
     private var lastMotionTime: TimeInterval = 0
     
     // Motion sensitivity thresholds
@@ -24,10 +31,15 @@ class InteractionManager: ObservableObject {
     var onRotation: ((simd_float3) -> Void)?
     
     private init() {
+        #if os(iOS)
         setupMotionDetection()
+        #else
+        // macOSでは何もしない
+        #endif
     }
     
     private func setupMotionDetection() {
+        #if os(iOS)
         guard motionManager.isAccelerometerAvailable else {
             print("Accelerometer not available")
             return
@@ -42,9 +54,13 @@ class InteractionManager: ObservableObject {
         }
         
         startMotionUpdates()
+        #else
+        // macOSでは何もしない
+        #endif
     }
     
     func startMotionUpdates() {
+        #if os(iOS)
         // Start accelerometer updates for shake detection
         motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
             guard let self = self, let data = data else { return }
@@ -58,11 +74,18 @@ class InteractionManager: ObservableObject {
                 self.processGyroscopeData(data)
             }
         }
+        #else
+        // macOSでは何もしない
+        #endif
     }
     
     func stopMotionUpdates() {
+        #if os(iOS)
         motionManager.stopAccelerometerUpdates()
         motionManager.stopGyroUpdates()
+        #else
+        // macOSでは何もしない
+        #endif
     }
     
     private func processAccelerometerData(_ data: CMAccelerometerData) {
@@ -115,11 +138,19 @@ class InteractionManager: ObservableObject {
     
     // Gesture handling methods
     func handleTap(at location: CGPoint) {
+        #if os(iOS)
         onTap?(location)
+        #else
+        // macOSでは何もしない
+        #endif
     }
     
     func handleSwipe(direction: SwipeDirection) {
+        #if os(iOS)
         onSwipe?(direction)
+        #else
+        // macOSでは何もしない
+        #endif
     }
 }
 

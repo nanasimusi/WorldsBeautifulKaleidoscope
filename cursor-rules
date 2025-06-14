@@ -1,0 +1,15 @@
+rules:
+  - when: "any code is changed"
+    then: "ask Claude to optimize the code and add helpful comments"
+
+  - when: "file matches *.ts"
+    then: "ask Claude to enforce strict type safety and improve readability"
+
+  - when: "file matches *.py"
+    then: "ask Claude to refactor the code for clarity and PEP8 compliance"
+
+  - when: "file matches *.js"
+    then: "ask Claude to modernize the syntax and ensure clarity with JSDoc comments"
+
+  - when: "file matches *.test.ts"
+    then: "ask Claude to verify test coverage and suggest additional edge case tests"
